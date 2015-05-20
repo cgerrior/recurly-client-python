@@ -565,6 +565,27 @@ class Invoice(Resource):
         refund_invoice.post(url, body)
 
         return refund_invoice
+        
+    def enter_offline_payment(self, **kwargs):
+        """Create an offline payment for this invoices"""
+        url = urljoin(self._url, '%s/transactions' % self.invoice_number)
+
+        if kwargs:
+            response = self.http_request(url, 'POST', Transaction(**kwargs), {'Content-Type':
+                'application/xml; charset=utf-8'})
+        else:
+            response = self.http_request(url, 'POST')
+
+        if response.status != 201:
+            self.raise_http_error(response)
+            
+        response_xml = response.read()
+        logging.getLogger('recurly.http.response').debug(response_xml)
+        elem = ElementTree.fromstring(response_xml)
+
+        transaction = Transaction.from_element(elem)
+        transaction._url = response.getheader('Location')
+        return transaction
 
 class Subscription(Resource):
 
@@ -719,6 +740,8 @@ class Transaction(Resource):
         'details',
         'transaction_error',
         'type',
+        'payment_method',
+        'collected_at',
     )
     xml_attribute_attributes = ('type',)
     sensitive_attributes = ('number', 'verification_value',)

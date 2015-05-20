@@ -11,7 +11,7 @@ from six.moves import urllib, http_client
 from six.moves.urllib.parse import urljoin
 
 
-from recurly import Account, AddOn, Adjustment, BillingInfo, Coupon, Plan, Redemption, Subscription, SubscriptionAddOn, Transaction
+from recurly import Account, AddOn, Adjustment, BillingInfo, Coupon, Invoice, Plan, Redemption, Subscription, SubscriptionAddOn, Transaction
 from recurly import Money, NotFoundError, ValidationError, BadRequestError, PageError
 from recurlytests import RecurlyTest, xml
 
@@ -633,6 +633,17 @@ class TestResources(RecurlyTest):
         finally:
             with self.mock_request('invoice/account-deleted.xml'):
                 account.delete()
+                
+    def test_offline_payment(self):
+        with self.mock_request('invoice/created.xml'):
+            invoice = Invoice.get('1001')
+            
+        with self.mock_request('transaction/offline-payment-created.xml'):
+            transaction = invoice.enter_offline_payment(payment_method='check', collected_at='2011-08-25T12:00:00Z', amount_in_cents=1000, description='Paid with a check')
+            
+        self.assertEqual(type(transaction), recurly.Transaction)
+        self.assertEqual(transaction.payment_method, 'check')
+        self.assertEqual(transaction.description, 'Paid with a check')
 
     def test_pages(self):
         account_code = 'pages-%s-%%d' % self.test_id
